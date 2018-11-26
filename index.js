@@ -2,11 +2,9 @@ const fetch = require("node-fetch");
 const url = "http://open.douyucdn.cn/api/RoomApi/room/309923";
 const schedule = require("node-schedule");
 const fs = require("fs");
+const nodemailer = require("nodemailer");
 const redis = require("redis"),
   client = redis.createClient();
-
-// if you'd like to select database 3, instead of 0 (default), call
-// client.select(3, function() { /* ... */ });
 
 client.on("error", err => console.error("Error " + err));
 client.set("live_flag", true, redis.print);
@@ -24,10 +22,32 @@ const j = schedule.scheduleJob("*/20 10-23 * * *", fireDate => {
         let obj = data.data;
         if (obj.room_status === "1") {
           if (client.get("live_flag")) {
-            //提醒一次
-            console.log("已开播");
-            console.log("发送邮件"); //回调设置 flag=false
-            client.set("live_flag", false);
+            nodemailer.createTestAccount((err, account) => {
+              let transporter = nodemailer.createTransport({
+                host: "smtp.163.com",
+                port: 465,
+                secure: true,
+                auth: {
+                  user: "liutsingluo@163.com",
+                  pass: "a1019656789"
+                }
+              });
+              let mailOptions = {
+                from: "liutsingluo@163.com",
+                to: "liutsingluo@163.com",
+                subject: `${obj.room_name}`,
+                html: `一键直达：<a href="//www.douyu.com/309923" target="_blank">${
+                  obj.owner_name
+                }</a>`
+              };
+              transporter.sendMail(mailOptions, (error, info) => {
+                if (error) {
+                  write(file, error);
+                  write(file, info);
+                }
+                client.set("live_flag", false);
+              });
+            });
           }
         } else if (obj.room_status === "2") {
           client.set("live_flag", true);
